@@ -22,6 +22,8 @@ and similar projects come to mind).
 
 Note: For now, `counsel-projectile` is a hard requirement due to lazy elisp.
 
+Note: Evil users, stay far away! This probably won't combine nicely with your workflow. 
+
 Usage: Just bind `barhop-mode` to something convenient and you're good to go.
 `C-<num> j` jumps to buffer number `num`, `C-<num> K` kills it, `C-<num> J`
 jumps to it in `other-window`.
