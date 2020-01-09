@@ -5,7 +5,7 @@
 (require 'projectile)
 (require 'counsel-projectile) ;; fixme -- pretty overkill
 
-(defcustom barhop-width 20 "Ha." :group 'barhop)
+(defcustom barhop-width 30 "Ha." :group 'barhop)
 (defcustom barhop-filter-regex "^\\*"
   "Fuasfasf."
   :group 'barhop
@@ -23,7 +23,7 @@
 
 ;; fixme
 (defface barhop-buffer-face
-  '((t :inherit 'font-lock-comment-face :height 0.8))
+  '((t :inherit 'default))
   "Feebleline filename face."
   :group 'barhop)
 
@@ -38,23 +38,38 @@
       (progn
         (add-hook 'focus-in-hook 'barhop-open-window);
         (add-hook 'focus-out-hook 'barhop-open-window);
-        (setq barhop--timer (run-with-timer 1 1 'barhop-open-window))
+        (setq barhop--timer (run-with-timer 0.4 1 'barhop-open-window))
         (barhop-open-window))
 
     ;; -- deactivate  ----
+    (cancel-timer barhop--timer)
+    (condition-case nil (kill-buffer (barhop--own-name)) (error nil))
     (remove-hook 'focus-in-hook 'barhop-open-window);
     (remove-hook 'focus-out-hook 'barhop-open-window);
-    (let ((win-to-del (get-buffer-window (barhop--own-name))))
+    (let ((win-to-del (barhop--get-window)))
       (when win-to-del (delete-window win-to-del)))
-    (cancel-timer barhop--timer)
     (kill-matching-buffers "\*counsel\-bar" nil t)))
+
+(defun barhop-steal-window ()
+  (interactive)
+  (let ((win-to-del (get-buffer-window (barhop--own-name) t)))
+    (when win-to-del (delete-window win-to-del))
+    (barhop-open-window)))
 
 (defun barhop--insert-candidate (candidate &optional number)
   "Insert CANDIDATE unless it satifies predicate, NUMBER too."
-  (if number (insert (propertize (format " %s%-3s" number ")")
-                                 'face 'barhop-buffer-face)))
-  (insert (propertize (concat candidate "\n")
-                      'face 'barhop-buffer-face)))
+  (if number (insert (propertize (format " %s%-1s" number "")
+                                 'face 'default)))
+  (insert (propertize
+           (truncate-string-to-width
+            candidate
+            ;; (round (* 0.8 barhop-width))
+            (round (* 0.8 (window-width (barhop--get-window))))
+            0
+            ?\s
+            "…")
+           'face 'barhop-buffer-face))
+  (insert "\n"))
 
 (defun barhop--filter-candidate (candidate)
   "Ass fff aa CANDIDATE."
@@ -65,13 +80,21 @@
   "*barhop*"
   )
 
+(defun barhop--get-window ()
+  "Hey."
+  (get-buffer-window (barhop--own-name)))
+
 (defun barhop--insert-buffer-list (buffer buflist)
   "Insert BUFLIST into BUFFER."
   (let ((tmp-proj-name (projectile-project-name)))
     (with-current-buffer buffer
       (erase-buffer)
-      (insert (propertize (concat "-- " tmp-proj-name " --\n\n")
-                          'face 'barhop-buffer-face))
+      (insert (propertize (concat (make-string (- barhop-width 10) ?-) "\n")
+                          'face 'font-lock-keyword-face))
+      (insert (propertize (concat "   " tmp-proj-name "\n")
+                          'face 'font-lock-keyword-face))
+      (insert (propertize (concat (make-string (- barhop-width 10) ?-) "\n")
+                          'face 'font-lock-keyword-face))
       (mapcar* 'barhop--insert-candidate
                buflist
                (number-sequence 1 (length buflist))))))
@@ -95,18 +118,14 @@
             (existing-bar-window (get-buffer-window (barhop--own-name)
                                                     'visible)))
         (if existing-bar-window
-            (barhop--insert-buffer-list (get-buffer
-                                              (barhop--own-name))
-                                             tmp-barhop-candidates)
+            (barhop--insert-buffer-list (get-buffer-create
+                                         (barhop--own-name))
+                                        tmp-barhop-candidates)
           (split-window (selected-window) barhop-width t)
           (barhop--insert-buffer-list (switch-to-buffer
-                                            (barhop--own-name))
-                                           tmp-barhop-candidates)
+                                       (barhop--own-name))
+                                      tmp-barhop-candidates)
           (set-window-dedicated-p existing-bar-window t)
-          (window-preserve-size existing-bar-window t t)
-          (setq window-size-fixed nil)
-          ;; (let ((fit-window-to-buffer-horizontally t))
-          ;; (fit-window-to-buffer)) ;; todo
           (other-window 1)))))
 
 (defun self-insert-or-buffer-kill (&optional arg)
